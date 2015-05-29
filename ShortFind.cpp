@@ -1,9 +1,9 @@
 /*	ShortFind
-*	-Finds the shortest string of events that lead to a blocking state
-*	-Use with 'blocking-events-full.txt' from Stephen Lanham's CountBlockingStates
-*	-Minimum number of events to find can be specified as a command line argument
-*	-Outputs the discovered state along with its event string
-*	-Finds the first state satisfying requirements, e.g. if 2 states have the shortest strings then the first one found will be output
+*	-Finds the shortest path to a deadlock state
+*	-Use with "deadlock_paths.txt" from Tracer.cpp
+*
+*
+*
 *
 *	Written for the UMDES TRW Project (2015)
 *	Austin Chen
@@ -45,10 +45,10 @@ int main(int argc, char* argv[])
 	
 	if(argc <= 1 || (argc == 2 && (strcmp(argv[1], "-h") == 0)) || (argc == 3 && !is_num(argv[2])))
 	{
-		cout<<"ShortFind: finds shortest string given a list of blocking states and their shortest path."<<endl;
-		cout<<"Intended for use with 'blocking-events-full.txt' from Stephen Lanham's CountBlockingStates."<<endl;
+		cout<<"ShortFind: finds shortest path to a deadlock state."<<endl;
+		cout<<"Intended for use with \"deadlock_paths.txt\" from Tracer.cpp"<<endl;
 		cout<<"By default, minimum string length is set to 0. Enter a non-negative integer after filename to specify a value."<<endl;
-		cout<<"Usage: <executable> [-h] <blocking-events-full.txt> <minimum string length>"<<endl;
+		cout<<"Usage: <executable> [-h] <deadlock_paths.txt> <minimum string length>"<<endl;
 		cout<<"Exiting..."<<endl;
 		return 2;
 	}
@@ -73,70 +73,46 @@ int main(int argc, char* argv[])
 
 
 	//find state with shortest string
-	cout<<"Finding state with shortest string..."<<endl;
-	string name = "";	//stores name of state
-	string name_short = "";	//stores name of state with shortest string
+	cout<<"Finding deadlock state with shortest string..."<<endl;
 	string s;	//s is used to store strings that are being "worked with"
 	vector<string> events;	//stores the events that lead to this state from the initial state
 	vector<string> events_short;	//stores the events of the state with fewest events
-
+	vector<string> states;	//stores the states that correspond to the path
+	vector<string> states_short;	//stores the states of the current shortest path
+	//get rid of first 3 lines
+	for(int i = 0; i < 3; i++)
+	{
+		getline(infile, s);
+	}
 	while(getline(infile,s))
 	{
-		if(s != "State found which transitions out of non-blocking space" && s != "Blocking state explored")
+		if(s == "")
 		{
-			if(s.empty()) continue;	//gets rid of empty newlines
-			istringstream instring(s);
-			instring >> s;	//gets transition name
-			events.push_back(s);
-			instring >> s;	//gets rid of list of states after transition name
-
-		}else{
-			
-			//cout<<"Current smallest: "<<events_short.size()<<endl; 	//<--DEBUG MESSAGE
-			//cout<<"Current: "<<events.size()<<endl;			//<--DEBUG MESSAGE
-
-			//check to see if current state has a shorter string than the one stored
-		
-			//if short name is empty, that means that no states have been read yet - make first state the short state
-			if(name_short == "")
+			//gets rid of "FIND PATH FOR DEADLOCK STATE... ", newline, and "Path is:"
+			for(int i = 0; i < 3; i++)
 			{
-				name_short = name;
-				events_short = events;
-
-				//the first state does not satisfy the minimum string length - erase it and continue
-				if(events_short.size() < MINIMUM_STRING_LENGTH)
-				{
-					name_short = "";
-					events_short.clear();
-				}
-				
-			}else if(events.size() < events_short.size() && events.size() >= MINIMUM_STRING_LENGTH)	//exclude strings less than minimum string length
-			{
-				name_short = name;
-				events_short = events;
-				//cout<<"CHANGED"<<endl;				//<--DEBUG MESSAGE
+				getline(infile, s);
 			}
 
-			getline(infile, name);	//reads name of state
-			getline(infile, s);	//gets rid of 'Transition History:' or 'Marked? YES/NO'
-			events.clear();
+			if(events.size() < events_short.size() || (events_short.size() == 0 && events.size() >= MINIMUM_STRING_LENGTH))
+			{
+				events_short = events;
+				states_short = states;
+			}
 
+			events.clear();
+			states.clear();
+		}else{
+			istringstream iss(s);
+			string currentEvent, currentState;
+			iss>>currentEvent>>currentState;
+			events.push_back(currentEvent);
+			states.push_back(currentState);
 		}
 
 		
 	}
 
-	//compare last state to shortest
-
-	//cout<<"Current smallest: "<<events_short.size()<<endl;			//<--DEBUG MESSAGE
-	//cout<<"Current (last):"<<events.size()<<endl;					//<--DEBUG MESSAGE
-	if(events.size() < events_short.size() && events.size() >= MINIMUM_STRING_LENGTH)	//exclude strings less than minimum string length
-		{
-			name_short = name;
-			events_short = events;
-			//cout<<"CHANGED (last)"<<endl;					//<--DEBUG MESSAGE
-		}
-	
 
 	//check if the string found has the required minimum length
 	if(events_short.size() < MINIMUM_STRING_LENGTH)
@@ -149,13 +125,26 @@ int main(int argc, char* argv[])
 	cout<<"Success!"<<endl<<endl;
 
 	//report state with shortest string
-	cout<<"State with shortest string: "<<endl<<endl<<name_short<<endl<<endl;
+
 	cout<<"List of events (length "<<events_short.size()<<") :"<<endl<<endl;
 	for(unsigned int i = 0; i < events_short.size(); i++)
 	{
-		cout<<events_short.at(i)<<"  ";
+		cout<<events_short.at(i)<<endl;
 	}
-	cout<<endl<<endl;
+	cout<<endl;
+
+	//export result
+	cout<<"Exporting result to short_path.txt"<<endl;
+	ofstream outfile("short_path.txt");
+	outfile<<"-------------------FINDING PATH FOR DEADLOCK STATE ";
+	outfile<<states_short.at(states_short.size() - 1);
+	outfile<<"--------------------"<<endl<<endl;
+	outfile<<"Path is:"<<endl;
+	for(unsigned int i = 0; i < events_short.size(); i++)
+	{
+		outfile<<events_short.at(i)<<"\t"<<states_short.at(i)<<endl;
+	}
+	cout<<endl;
 
 	cout<<"Exiting..."<<endl;
 	return 0;
